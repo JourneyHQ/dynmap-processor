@@ -7,8 +7,12 @@ data class ImageFile(
 )
 
 fun main() {
-    val files = File("./images/zoom-4").listFiles()
-        ?: throw UnsupportedOperationException("Images under ./images not found.")
+    collectImages("./images/zoom-4")
+}
+
+fun collectImages(path: String) {
+    val files = File(path).listFiles()
+        ?: throw UnsupportedOperationException("Images under $path not found.")
 
     val imageFiles = mutableListOf<ImageFile>()
 
@@ -20,8 +24,9 @@ fun main() {
             continue
         }
 
-        val data = matchResult.groups.map { it?.value }
+        val data = matchResult.groups.map { it?.value } // ex: ["1_-4.png", "1", "-4"]
         imageFiles.add(ImageFile(data[1]!!.toInt(), data[2]!!.toInt(), File(data[0]!!)))
     }
-    println(imageFiles)
+
+    return imageFiles
 }
