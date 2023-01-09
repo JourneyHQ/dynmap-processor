@@ -1,32 +1,80 @@
-import java.io.File
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.check
+import com.github.ajalt.clikt.parameters.options.default
+import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.int
+import com.github.ajalt.clikt.parameters.types.path
+import java.awt.Color
 
-data class ImageFile(
-    val x: Number,
-    val y: Number,
-    val file: File
-)
 
-fun main() {
-    collectImages("./images/zoom-4")
-}
+// 128 * 128
+// 0-0.png -> 0,-64
 
-fun collectImages(path: String) {
-    val files = File(path).listFiles()
-        ?: throw UnsupportedOperationException("Images under $path not found.")
+// TODO
+class Main : CliktCommand() {
+    val tiles by option(help = "The directory of tile images.").path(
+        mustExist = true,
+        canBeFile = false
+    )
 
-    val imageFiles = mutableListOf<ImageFile>()
+    val output by option(help = "The directory to output generated images and metadata.").path(
+        canBeFile = false
+    )
 
-    for (file in files) {
-        val regex = Regex("^(-?[0-9]+)_(-?[0-9]+)\\.png$")
-        val matchResult = regex.matchEntire(file.name)
-        if (matchResult == null) {
-            println("Skip illegal file name: ${file.name}")
-            continue
+    val zoom by option(help = "Zoom level (0~4)").int().default(4)
+        .check("Value must be 0~4") {
+            it in 0..4
         }
 
-        val data = matchResult.groups.map { it?.value } // ex: ["1_-4.png", "1", "-4"]
-        imageFiles.add(ImageFile(data[1]!!.toInt(), data[2]!!.toInt(), File(data[0]!!)))
-    }
+    val height by option(help = "")
 
-    return imageFiles
+    override fun run() {
+
+    }
+}
+
+fun main() {
+    /**
+     * MinecraftCoordinate(-2,1),
+     * MinecraftCoordinate(0,1),
+     * MinecraftCoordinate(-2,0),
+     * MinecraftCoordinate(-1,0),
+     * MinecraftCoordinate(0,0),
+     * MinecraftCoordinate(1,0),
+     * MinecraftCoordinate(-1,-1),
+     * MinecraftCoordinate(1,-1) //duplicated line
+     *
+     * MinecraftCoordinate(-1,1),
+     * MinecraftCoordinate(0,1),
+     * MinecraftCoordinate(-1,0),
+     * MinecraftCoordinate(1,0),
+     * MinecraftCoordinate(0,-1),
+     * MinecraftCoordinate(1,-1) // intersecting line (error)
+     */
+
+    val chunkImageResolution = 128
+    val zoom = 4
+
+    val mapImage = MapImage.create("./map/", "./images/", zoom, chunkImageResolution)
+
+    mapImage.createAreaImage(
+        Area(
+            "test1", listOf(
+                MinecraftCoordinate(1070, -1873),
+                MinecraftCoordinate(1362, -1873),
+                MinecraftCoordinate(704, -1764),
+                MinecraftCoordinate(1070, -1764),
+                MinecraftCoordinate(704, -1430),
+                MinecraftCoordinate(1362, -1430)
+            ), Color(255, 167, 250) // yuuacity
+        ),
+        Area(
+            "test2", listOf(
+                MinecraftCoordinate(-1000, 1500),
+                MinecraftCoordinate(-1500, 1500),
+                MinecraftCoordinate(-1000, 1000),
+                MinecraftCoordinate(-1500, 1000)
+            ), Color.RED
+        )
+    )
 }
