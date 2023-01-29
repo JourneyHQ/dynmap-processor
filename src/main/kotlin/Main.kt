@@ -2,6 +2,7 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.check
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import java.awt.Color
@@ -15,18 +16,22 @@ class Main : CliktCommand() {
     val tiles by option(help = "The directory of tile images.").path(
         mustExist = true,
         canBeFile = false
-    )
+    ).required()
 
     val output by option(help = "The directory to output generated images and metadata.").path(
         canBeFile = false
-    )
+    ).required()
 
     val zoom by option(help = "Zoom level (0~4)").int().default(4)
         .check("Value must be 0~4") {
             it in 0..4
         }
 
-    val height by option(help = "")
+    val height by option(help = "Height of the map image. Using with width parameter might cause distortion.").int()
+        .check { 0 < it }
+
+    val width by option(help = "Width of the map image. Using with height parameter might cause distortion.").int()
+        .check { 0 < it }
 
     override fun run() {
 

@@ -1,4 +1,6 @@
 import com.sksamuel.scrimage.ImmutableImage
+import com.sksamuel.scrimage.canvas.drawables.FilledRect
+import com.sksamuel.scrimage.canvas.drawables.Text
 import com.sksamuel.scrimage.nio.PngWriter
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -223,6 +225,16 @@ class MapImage(
 
             val pixelImageArea = PixelCoordinate(width, height)
 
+            val textImage = ImmutableImage.create(pixelImageArea.x, 9)
+                .toCanvas().draw(
+                    Text(area.name, 0, 9) {
+                        it.color = area.color
+                    },
+                    FilledRect(0, 0, pixelImageArea.x, 9) {
+                        it.color = area.transparentColor
+                    }
+                ).image
+
             val baseImage = ImmutableImage.create(pixelImageArea.x, pixelImageArea.y)
 
             val xPixelLines =
@@ -249,7 +261,7 @@ class MapImage(
                 else if (isLinesAbove && isLinesBelow && isLinesLeft && isLinesRight) area.transparentColor // this pixel is in the area to fill.
                 else pixel.toColor().awt() // this pixel should be ignored
 
-            }, originPixel.x, originPixel.y)
+            }.overlay(textImage, 2, 2), originPixel.x, originPixel.y)
         }
 
         val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-DD-HH-mm-ss")
