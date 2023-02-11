@@ -203,6 +203,9 @@ class MapImage(
 
         /**
          * Load the map from existing image and metadata.
+         *
+         * @param path the directory path where the map data stored. (like ./map_images/2023_1_4_13_14/)
+         * @param chunkImagePath the directory path to chunk images.
          */
         fun load(path: String, chunkImagePath: String): MapImage {
             val baseMap = ImmutableImage.loader().fromFile(basemapFile(path))
