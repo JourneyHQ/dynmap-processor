@@ -1,15 +1,18 @@
 import com.sksamuel.scrimage.ImmutableImage
 import com.sksamuel.scrimage.canvas.drawables.FilledRect
+import com.sksamuel.scrimage.canvas.drawables.Line
+import com.sksamuel.scrimage.canvas.drawables.Oval
 import com.sksamuel.scrimage.canvas.drawables.Text
 import com.sksamuel.scrimage.nio.PngWriter
-import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.Json.Default.encodeToString
+import markers.LineMarker
+import markers.Marker
+import markers.MarkerType
+import markers.optimizeAreaLines
 import java.awt.Color
 import java.io.File
 import java.rmi.UnexpectedException
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectory
 import kotlin.io.path.exists
@@ -128,9 +131,8 @@ class MapImage(
             val xZeroArea = xMapData[0]
             val yZeroArea = yMapData[0]
 
-            if (!(xZeroArea != null && yZeroArea != null)) {
+            if (!(xZeroArea != null && yZeroArea != null))
                 throw UnsupportedOperationException("The center of the map (0,0) could not be found!")
-            }
 
             val xKeys = xMapData.keys
             val yKeys = yMapData.keys
@@ -158,33 +160,29 @@ class MapImage(
 
             lateinit var centralChunkPixel: PixelCoordinate // already confirmed that 0_0.png exists
 
-            // val imageTotal = mapImages.filter { it.second.file != null }.size.toLong()
+            for (mapImage in mapImages) {
+                val file = mapImage.second.file ?: continue
 
-            runBlocking {
-                for (mapImage in mapImages) {
-                    val file = mapImage.second.file ?: continue
+                val isCentralChunk = mapImage.second.x == 0 && mapImage.second.y == 0
 
-                    val isCentralChunk = mapImage.second.x == 0 && mapImage.second.y == 0
-
-                    val chunkMap = ImmutableImage.loader().fromFile(file).map {
-                        if (it.x == 0 || it.y == 0)
-                            if (isCentralChunk) Color.BLUE else Color.RED
-                        else it.toColor().awt()
-                    }
-
-                    val pixelCoordinate = PixelCoordinate(
-                        mapImage.first.xIndex * chunkImageResolution,
-                        yFullResolution - mapImage.first.yIndex * chunkImageResolution
-                    ) // reversed
-
-                    baseMap = baseMap.overlay(
-                        chunkMap,
-                        pixelCoordinate.x,
-                        pixelCoordinate.y
-                    )
-
-                    if (isCentralChunk) centralChunkPixel = pixelCoordinate
+                val chunkMap = ImmutableImage.loader().fromFile(file).map {
+                    if (it.x == 0 || it.y == 0)
+                        if (isCentralChunk) Color.BLUE else Color.RED
+                    else it.toColor().awt()
                 }
+
+                val pixelCoordinate = PixelCoordinate(
+                    mapImage.first.xIndex * chunkImageResolution,
+                    yFullResolution - mapImage.first.yIndex * chunkImageResolution
+                ) // reversed
+
+                baseMap = baseMap.overlay(
+                    chunkMap,
+                    pixelCoordinate.x,
+                    pixelCoordinate.y
+                )
+
+                if (isCentralChunk) centralChunkPixel = pixelCoordinate
             }
 
             val metadata = MapMetadata(
@@ -198,6 +196,7 @@ class MapImage(
             baseMap.output(PngWriter.NoCompression, basemapFile(path))
             metadataFile(path).writeText(encodeToString(MapMetadata.serializer(), metadata))
 
+            print("Basemap generate complete.")
             return MapImage(path, chunkImagePath, baseMap, metadata)
         }
 
@@ -210,65 +209,160 @@ class MapImage(
         fun load(path: String, chunkImagePath: String): MapImage {
             val baseMap = ImmutableImage.loader().fromFile(basemapFile(path))
             val metadata = Json.decodeFromString(MapMetadata.serializer(), metadataFile(path).readText())
+
+            println("Basemap load complete.")
             return MapImage(path, chunkImagePath, baseMap, metadata)
         }
     }
 
-    fun createAreaImage(vararg areas: Area) {
-        var areaMapImage = mapImage
-        for (area in areas) {
-            val pixelCoordinates = area.coordinates.map { it.toPixelCoordinate() }
-            val xList = pixelCoordinates.map { it.x }
-            val yList = pixelCoordinates.map { it.y }
+    fun edit(
+        markers: List<Marker>,
+        height: Int?,
+        width: Int?,
+        trim: List<Int>?,
+        resize: Double
+    ): ImmutableImage {
+        TODO()
+    }
 
-            val originPixel = PixelCoordinate(xList.min(), yList.min())
+    fun drawMarker(marker: Marker): ImmutableImage {
+        val pixelCoordinates = marker.coordinates.map { it.toPixelCoordinate() }
+        return when (marker.type) {
+            MarkerType.Area -> {
+                val (xLines, yLines) = optimizeAreaLines(marker.name, marker.coordinates)
+                drawArea(marker, pixelCoordinates, mapImage, xLines, yLines)
+            }
 
-            val width = xList.max() - xList.min() + 1
-            val height = yList.max() - yList.min() + 1
-
-            val pixelImageArea = PixelCoordinate(width, height)
-
-            val textImage = ImmutableImage.create(pixelImageArea.x, 9)
-                .toCanvas().draw(
-                    Text(area.name, 0, 9) {
-                        it.color = area.color
-                    },
-                    FilledRect(0, 0, pixelImageArea.x, 9) {
-                        it.color = area.transparentColor
+            MarkerType.Line -> {
+                mapImage.toCanvas().draw(
+                    Line(pixelCoordinates[0].x, pixelCoordinates[0].y, pixelCoordinates[1].x, pixelCoordinates[1].y) {
+                        it.color = marker.color.toJavaColor()
                     }
                 ).image
+            }
 
-            val baseImage = ImmutableImage.create(pixelImageArea.x, pixelImageArea.y)
-
-            val xPixelLines =
-                area.xLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
-            val yPixelLines =
-                area.yLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
-
-            areaMapImage = areaMapImage.overlay(baseImage.map { pixel ->
-                val xLinesInRange =
-                    xPixelLines.any { (it.first.x <= pixel.x && pixel.x <= it.second.x) && pixel.y == it.first.y }
-                val yLinesInRange =
-                    yPixelLines.any { (it.first.y <= pixel.y && pixel.y <= it.second.y) && pixel.x == it.first.x }
-
-                val isLinesAbove =
-                    xPixelLines.any { pixel.y > it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
-                val isLinesBelow =
-                    xPixelLines.any { pixel.y < it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
-                val isLinesLeft =
-                    yPixelLines.any { pixel.x > it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
-                val isLinesRight =
-                    yPixelLines.any { pixel.x < it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
-
-                if (xLinesInRange || yLinesInRange) area.color // this pixel is line.
-                else if (isLinesAbove && isLinesBelow && isLinesLeft && isLinesRight) area.transparentColor // this pixel is in the area to fill.
-                else pixel.toColor().awt() // this pixel should be ignored
-
-            }.overlay(textImage, 2, 2), originPixel.x, originPixel.y)
+            MarkerType.Circle -> {
+                mapImage.toCanvas().draw(
+                    Oval(pixelCoordinates[0].x, pixelCoordinates[0].y, marker.radius, marker.radius) {
+                        it.color = marker.color.toJavaColor()
+                        it.background = marker.overlay.toJavaColor()
+                    }
+                ).image
+            }
         }
-
-        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-DD-HH-mm-ss")
-        val filename = "AreaMap-${LocalDateTime.now().format(timeFormatter)}.png"
-        areaMapImage.output(PngWriter.NoCompression, Path(path, filename))
     }
+
+    private fun drawArea(
+        marker: Marker,
+        pixelCoordinates: List<PixelCoordinate>,
+        mapImage: ImmutableImage,
+        xLines: List<LineMarker>,
+        yLines: List<LineMarker>
+    ): ImmutableImage {
+        val xList = pixelCoordinates.map { it.x }
+        val yList = pixelCoordinates.map { it.y }
+
+        val originPixel = PixelCoordinate(xList.min(), yList.min())
+
+        val width = xList.max() - xList.min() + 1
+        val height = yList.max() - yList.min() + 1
+
+        val pixelImageArea = PixelCoordinate(width, height)
+
+        val textImage = ImmutableImage.create(pixelImageArea.x, 9)
+            .toCanvas().draw(
+                Text(marker.name, 0, 9) {
+                    it.color = marker.color.toJavaColor()
+                },
+                FilledRect(0, 0, pixelImageArea.x, 9) {
+                    it.color = marker.overlay.toJavaColor()
+                }
+            ).image
+
+        val areaImage = ImmutableImage.create(pixelImageArea.x, pixelImageArea.y)
+
+        val xPixelLines =
+            xLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
+        val yPixelLines =
+            yLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
+
+        return mapImage.overlay(areaImage.map { pixel ->
+            val xLinesInRange =
+                xPixelLines.any { (it.first.x <= pixel.x && pixel.x <= it.second.x) && pixel.y == it.first.y }
+            val yLinesInRange =
+                yPixelLines.any { (it.first.y <= pixel.y && pixel.y <= it.second.y) && pixel.x == it.first.x }
+
+            val isLinesAbove =
+                xPixelLines.any { pixel.y > it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
+            val isLinesBelow =
+                xPixelLines.any { pixel.y < it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
+            val isLinesLeft =
+                yPixelLines.any { pixel.x > it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
+            val isLinesRight =
+                yPixelLines.any { pixel.x < it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
+
+            if (xLinesInRange || yLinesInRange) marker.color.toJavaColor() // this pixel is line.
+            else if (isLinesAbove && isLinesBelow && isLinesLeft && isLinesRight) marker.overlay.toJavaColor() // this pixel is in the area to fill.
+            else pixel.toColor().awt() // this pixel should be ignored
+
+        }.overlay(textImage, 2, 2), originPixel.x, originPixel.y)
+    }
+
+//    fun createAreaImage(vararg areas: Area) {
+//        var areaMapImage = mapImage
+//        for (area in areas) {
+//            val pixelCoordinates = area.coordinates.map { it.toPixelCoordinate() }
+//            val xList = pixelCoordinates.map { it.x }
+//            val yList = pixelCoordinates.map { it.y }
+//
+//            val originPixel = PixelCoordinate(xList.min(), yList.min())
+//
+//            val width = xList.max() - xList.min() + 1
+//            val height = yList.max() - yList.min() + 1
+//
+//            val pixelImageArea = PixelCoordinate(width, height)
+//
+//            val textImage = ImmutableImage.create(pixelImageArea.x, 9)
+//                .toCanvas().draw(
+//                    Text(area.name, 0, 9) {
+//                        it.color = area.color
+//                    },
+//                    FilledRect(0, 0, pixelImageArea.x, 9) {
+//                        it.color = area.overlay
+//                    }
+//                ).image
+//
+//            val baseImage = ImmutableImage.create(pixelImageArea.x, pixelImageArea.y)
+//
+//            val xPixelLines =
+//                area.xLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
+//            val yPixelLines =
+//                area.yLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
+//
+//            areaMapImage = areaMapImage.overlay(baseImage.map { pixel ->
+//                val xLinesInRange =
+//                    xPixelLines.any { (it.first.x <= pixel.x && pixel.x <= it.second.x) && pixel.y == it.first.y }
+//                val yLinesInRange =
+//                    yPixelLines.any { (it.first.y <= pixel.y && pixel.y <= it.second.y) && pixel.x == it.first.x }
+//
+//                val isLinesAbove =
+//                    xPixelLines.any { pixel.y > it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
+//                val isLinesBelow =
+//                    xPixelLines.any { pixel.y < it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
+//                val isLinesLeft =
+//                    yPixelLines.any { pixel.x > it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
+//                val isLinesRight =
+//                    yPixelLines.any { pixel.x < it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
+//
+//                if (xLinesInRange || yLinesInRange) area.color // this pixel is line.
+//                else if (isLinesAbove && isLinesBelow && isLinesLeft && isLinesRight) area.overlay // this pixel is in the area to fill.
+//                else pixel.toColor().awt() // this pixel should be ignored
+//
+//            }.overlay(textImage, 2, 2), originPixel.x, originPixel.y)
+//        }
+//
+//        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-DD-HH-mm-ss")
+//        val filename = "AreaMap-${LocalDateTime.now().format(timeFormatter)}.png"
+//        areaMapImage.output(PngWriter.NoCompression, Path(path, filename))
+//    }
 }
