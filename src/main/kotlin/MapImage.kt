@@ -6,10 +6,7 @@ import com.sksamuel.scrimage.canvas.drawables.Text
 import com.sksamuel.scrimage.nio.PngWriter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.Json.Default.encodeToString
-import markers.LineMarker
-import markers.Marker
-import markers.MarkerType
-import markers.optimizeAreaLines
+import markers.*
 import java.awt.Color
 import java.io.File
 import java.rmi.UnexpectedException
@@ -216,39 +213,71 @@ class MapImage(
     }
 
     fun edit(
-        markers: List<Marker>,
+        markers: Markers,
         height: Int?,
         width: Int?,
-        trim: List<Int>?,
+        trim: List<Int>?, // size == 4
         resize: Double
     ): ImmutableImage {
-        TODO()
+        var image = mapImage
+
+        // marker
+        for (marker in markers.markers) {
+            image = drawMarker(image, marker)
+        }
+
+        // trim
+        if (trim != null) {
+            val start = MinecraftCoordinate(trim[0], trim[1]).toPixelCoordinate()
+            val end = MinecraftCoordinate(trim[2], trim[3]).toPixelCoordinate()
+
+            val xCoordinates = listOf(start.x, end.x).sorted()
+            val yCoordinates = listOf(start.y, end.y).sorted()
+
+            image = image.trim(
+                xCoordinates[0],
+                yCoordinates[0],
+                (image.width - xCoordinates[1]),
+                (image.height - yCoordinates[1])
+            )
+        }
+
+        // height and width
+        image = when {
+            width != null && height == null -> image.scaleToWidth(width)
+            width == null && height != null -> image.scaleToHeight(height)
+            width != null && height != null -> image.scaleTo(width, height)
+            else -> image
+        }
+
+        // resize
+        image = image.resize(resize)
+
+        return image
     }
 
-    fun drawMarker(marker: Marker): ImmutableImage {
+    private fun drawMarker(image: ImmutableImage, marker: Marker): ImmutableImage {
         val pixelCoordinates = marker.coordinates.map { it.toPixelCoordinate() }
         return when (marker.type) {
             MarkerType.Area -> {
                 val (xLines, yLines) = optimizeAreaLines(marker.name, marker.coordinates)
-                drawArea(marker, pixelCoordinates, mapImage, xLines, yLines)
+                drawArea(marker, pixelCoordinates, image, xLines, yLines)
             }
 
-            MarkerType.Line -> {
-                mapImage.toCanvas().draw(
+            MarkerType.Line ->
+                image.toCanvas().draw(
                     Line(pixelCoordinates[0].x, pixelCoordinates[0].y, pixelCoordinates[1].x, pixelCoordinates[1].y) {
                         it.color = marker.color.toJavaColor()
                     }
                 ).image
-            }
 
-            MarkerType.Circle -> {
-                mapImage.toCanvas().draw(
+            MarkerType.Circle ->
+                image.toCanvas().draw(
                     Oval(pixelCoordinates[0].x, pixelCoordinates[0].y, marker.radius, marker.radius) {
                         it.color = marker.color.toJavaColor()
                         it.background = marker.overlay.toJavaColor()
                     }
                 ).image
-            }
         }
     }
 

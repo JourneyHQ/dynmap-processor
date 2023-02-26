@@ -31,7 +31,7 @@ data class Color(
     val r: Int,
     val g: Int,
     val b: Int,
-    val a: Int
+    val a: Int = 100
 ) {
     init {
         if (!(r in 0..255 && g in 0..255 && b in 0..255 && a in 0..100))

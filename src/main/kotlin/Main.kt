@@ -3,24 +3,37 @@ import com.github.ajalt.clikt.parameters.options.*
 import com.github.ajalt.clikt.parameters.types.double
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
+import com.sksamuel.scrimage.nio.PngWriter
 import kotlinx.serialization.json.Json
 import markers.Markers
 import java.io.File
+import java.nio.file.Path
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 
 // 128 * 128
 // 0-0.png -> 0,-64
 
-class Main : CliktCommand() {
+class Main : CliktCommand(
+    help = """
+    # Dynmap Processor #
+    
+    Note that the final image will be processed in the following order:
+    
+    1. draw markers
+    
+    2. trim to a specified area
+    
+    3. scale width and height
+    
+    4. resize the image by the provided rate
+""".trimIndent()
+) {
     val images by option(
         "-i",
         help = "The directory of tile images."
     ).path(mustExist = true, canBeFile = false).required()
-
-    val markers by option(
-        "-m",
-        help = "The file path to JSON file that configure markers."
-    ).path(mustExist = true, canBeDir = false)
 
     val output by option(
         "-o",
@@ -38,6 +51,11 @@ class Main : CliktCommand() {
     ).int().default(4).check("Value must be 0 to 4") {
         it in 0..4
     }
+
+    val markers by option(
+        "-m",
+        help = "The file path to JSON file that configure markers."
+    ).path(mustExist = true, canBeDir = false)
 
     val height by option(
         "-h",
@@ -72,11 +90,18 @@ class Main : CliktCommand() {
                 MapImage.load(outputString, images.toString())
             else MapImage.create(outputString, images.toString(), zoom, chunkImageResolution)
 
-        if (this.markers != null) {
-            val markers = Json.decodeFromString(Markers.serializer(), File(this.markers.toString()).readText())
+        val editedMapImage = mapImage.edit(
+            Json.decodeFromString(Markers.serializer(), File(this.markers.toString()).readText()),
+            height,
+            width,
+            trim?.map { it.toInt() },
+            resize
+        )
 
+        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-DD-HH-mm-ss")
+        val filename = "map-${LocalDateTime.now().format(timeFormatter)}.png"
 
-        }
+        editedMapImage.output(PngWriter.NoCompression, Path.of(outputString, filename))
     }
 }
 
