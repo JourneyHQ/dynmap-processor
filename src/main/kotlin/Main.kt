@@ -52,6 +52,11 @@ class Main : CliktCommand(
         it in 0..4
     }
 
+    val edit by option(
+        "-e",
+        help = "Whether to enable image editing."
+    ).flag(default = false)
+
     val markers by option(
         "-m",
         help = "The file path to JSON file that configure markers."
@@ -90,18 +95,22 @@ class Main : CliktCommand(
                 MapImage.load(outputString, images.toString())
             else MapImage.create(outputString, images.toString(), zoom, chunkImageResolution)
 
-        val editedMapImage = mapImage.edit(
-            Json.decodeFromString(Markers.serializer(), File(this.markers.toString()).readText()),
-            height,
-            width,
-            trim?.map { it.toInt() },
-            resize
-        )
+        if (edit) {
+            val markerFile = File(this.markers.toString())
 
-        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-DD-HH-mm-ss")
-        val filename = "map-${LocalDateTime.now().format(timeFormatter)}.png"
+            val editedMapImage = mapImage.edit(
+                if (markerFile.exists()) Json.decodeFromString(Markers.serializer(), markerFile.readText()) else Markers(emptyList()),
+                height,
+                width,
+                trim?.map { it.toInt() },
+                resize
+            )
 
-        editedMapImage.output(PngWriter.NoCompression, Path.of(outputString, filename))
+            val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-DD-HH-mm-ss")
+            val filename = "map-${LocalDateTime.now().format(timeFormatter)}.png"
+
+            editedMapImage.output(PngWriter.NoCompression, Path.of(outputString, filename))
+        }
     }
 }
 
