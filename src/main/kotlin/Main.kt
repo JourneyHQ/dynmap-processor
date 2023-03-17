@@ -21,13 +21,13 @@ class Main : CliktCommand(
     
     Note that the final image will be processed in the following order:
     
-    1. draw markers
+    1. draw markers (-m)
     
-    2. trim to a specified area
+    2. trim to a specified area (-t)
     
-    3. scale width and height
+    3. scale width and height (-h,-w)
     
-    4. resize the image by the provided rate
+    4. resize the image by the provided rate (-r)
 """.trimIndent()
 ) {
     val images by option(
@@ -41,7 +41,7 @@ class Main : CliktCommand(
     ).path(canBeFile = false).required()
 
     val cache by option(
-        "-c",
+        "-c", //fixme when zoom level is different but use of cache is allowed...
         help = "Whether to allow the use of cached basemap. (Skip basemap generation from scratch)"
     ).flag(default = false)
 
@@ -82,6 +82,11 @@ class Main : CliktCommand(
         help = "Scale up (or down) the output image to the specified scale rate. (0<x<1 to scale down, 1<x to scale up)"
     ).double().default(1.0).check { it > 0 }
 
+    val grid by option(
+        "-g",
+        help = "Whether to enable chunk grid."
+    ).flag(default = false)
+
     override fun run() {
         val chunkImageResolution = 128
 
@@ -93,7 +98,7 @@ class Main : CliktCommand(
         val mapImage =
             if (basemapExists && metadataExists && cache)
                 MapImage.load(outputString, images.toString())
-            else MapImage.create(outputString, images.toString(), zoom, chunkImageResolution)
+            else MapImage.create(outputString, images.toString(), zoom, chunkImageResolution, grid)
 
         if (edit) {
             val markerFile = File(this.markers.toString())
@@ -110,6 +115,7 @@ class Main : CliktCommand(
             val filename = "map-${LocalDateTime.now().format(timeFormatter)}.png"
 
             editedMapImage.output(PngWriter.NoCompression, Path.of(outputString, filename))
+            println("Image edit complete.")
         }
     }
 }

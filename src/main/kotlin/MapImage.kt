@@ -109,12 +109,14 @@ class MapImage(
          * @param chunkImagePath the directory path to chunk images.
          * @param zoom the zoom level of the map. (0~4)
          * @param chunkImageResolution the resolution of chunk images.
+         * @param grid whether to enable grid.
          */
         fun create(
             path: String,
             chunkImagePath: String,
             zoom: Int,
-            chunkImageResolution: Int
+            chunkImageResolution: Int,
+            grid: Boolean
         ): MapImage {
             val root = Path(path)
             if (!root.exists()) root.createDirectory()
@@ -163,7 +165,7 @@ class MapImage(
                 val isCentralChunk = mapImage.second.x == 0 && mapImage.second.y == 0
 
                 val chunkMap = ImmutableImage.loader().fromFile(file).map {
-                    if (it.x == 0 || it.y == 0)
+                    if (grid && (it.x == 0 || it.y == 0))
                         if (isCentralChunk) Color.BLUE else Color.RED
                     else it.toColor().awt()
                 }
@@ -193,7 +195,7 @@ class MapImage(
             baseMap.output(PngWriter.NoCompression, basemapFile(path))
             metadataFile(path).writeText(encodeToString(MapMetadata.serializer(), metadata))
 
-            print("Basemap generate complete.")
+            println("Basemap generate complete.")
             return MapImage(path, chunkImagePath, baseMap, metadata)
         }
 
