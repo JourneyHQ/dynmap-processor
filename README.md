@@ -69,6 +69,8 @@ input_images
         ...
 ```
 
+---
+
 ### Output: `-o` or `--output`
 > Example: `-o ./output_images`
 
@@ -84,11 +86,15 @@ output_images
 `map-{year}-{month}-{date}-{hour}-{minute}-{second}.png` is the edited image as you specified in [markers.json](#marker-file). How to edit image is [here](#edit--e-or---edit-false-by-default).  
 `metadata.json` is the metadata file that stores resolution, central coordinate, and zoom level.
 
+---
+
 ### Cache: `-c` or `--cache`
 > Example: `-c`
 
 Whether to allow the use of cached basemap.  
 If you use this option and basemap.png already exists, Dynmap Processor will skip the new basemap generation.
+
+---
 
 ### Zoom level: `-z` or `--zoom` (4 by default)
 > Example: `-z 3`
@@ -96,10 +102,14 @@ If you use this option and basemap.png already exists, Dynmap Processor will ski
 Specify the zoom level from 0 to 4.  
 **2~0 are super dangerous.**
 
+---
+
 ### Grid: `-g` or `--grid` (`false` by default)
 > Example: `-g`
 
 Whether to enable chunk grid.
+
+---
 
 ### Edit: `-e` or `--edit` (`false` by default)
 > Example: `-e`
@@ -115,11 +125,15 @@ Note that the final image will be processed in the following order:
 3. scale width and height `-h,-w`  
 4. resize the image by the provided rate `-r`  
 
+---
+
 ### Markers: `-m` or `--markers`
 > Example: `-m ./markers.json`
 
 The file path to the JSON file configures markers.  
 See [Marker file](#marker-file)
+
+---
 
 ### Trim: `-t` or `--trim`
 > Example: `-t 1000,1000,-1000,-1000`
@@ -127,11 +141,15 @@ See [Marker file](#marker-file)
 Trim to the specified area.  
 Format: `x1,y1,x2,y2`
 
+---
+
 ### Height and width: `-h`,`-w` or `--height`,`--width`
 > Example: `-w 1000` / `-h 500`
 
 Height or width of the map image.  
 Using both option at the same time might cause distortion.
+
+---
 
 ### Resize: `-r` or `--resize` (`1` by default)
 > Example: `-r 0.8`
