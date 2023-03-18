@@ -2,7 +2,7 @@
 
 ## Getting Started
 Download it from [GitHub Releases](https://github.com/jaoafa/DynmapProcessor/releases), or build it yourself: `./gradlew package`  
-Then, `java -jar ./DynmapProcessor-1.0.jar --help` to view help.
+Then, `java -jar ./DynmapProcessor-1.0.0.jar --help` to view help.
 <details>
     <summary>Help output</summary>  
 
@@ -242,4 +242,4 @@ JSON Schema: `` //todo url
 
 
 ## Example
-`java -jar ./DynmapProcessor-1.0.jar -i ./images -o ./output -z 4 -e -m ./markers.json`
+`java -jar ./DynmapProcessor-1.0.0.jar -i ./images -o ./output -z 4 -e -m ./markers.json`
