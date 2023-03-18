@@ -36,7 +36,7 @@ class Main : CliktCommand(
         help = "Input type"
     ).enum<InputType>().default(InputType.FILE)
 
-    val images by option(
+    val input by option(
         "-i", "--input",
         help = "The directory of tile images."
     ).path(mustExist = true, canBeFile = false)
@@ -72,7 +72,7 @@ class Main : CliktCommand(
     ).path(canBeFile = false).required()
 
     val cache by option(
-        "-c", "--cache", //fixme when zoom level is different but use of cache is allowed...
+        "--cache", //fixme when zoom level is different but use of cache is allowed...
         help = "Whether to allow the use of cached basemap. (Skip basemap generation from scratch)"
     ).flag(default = false)
 
@@ -99,8 +99,8 @@ class Main : CliktCommand(
     ).path(mustExist = true, canBeDir = false)
 
     val clip by option(
-        "--clip",
-        help = "Clipping to the specified area. Format: x1,y1,x2,y2"
+        "-c", "--clip",
+        help = "Clip the specified area from the map image. Format: x1,y1,x2,y2"
     ).split(",").check("Length of the list must be 4. For example: 120,150,-10,10") { it.size == 4 }
 
     val height by option(
@@ -121,16 +121,30 @@ class Main : CliktCommand(
     override fun run() {
         val chunkImageResolution = 128
 
-        checkArguments()
+        // check if all necessary information is specified.
+        when (inputType) {
+            InputType.FILE ->
+                if (input == null)
+                    throw UsageError("Please specify the input directory.")
+
+            InputType.DATABASE ->
+                if (jdbcUrl == null || dbUser == null || dbPassword == null)
+                    throw UsageError("Please specify the database connection information.")
+        }
 
         val outputString = output.toString()
 
         val basemapExists = MapImage.basemapFile(outputString).exists()
         val metadataExists = MapImage.metadataFile(outputString).exists()
 
-        val inputDirectory = getInputDirectory()
+        val inputDirectory = when (inputType) {
+            InputType.FILE -> input.toString()
+            InputType.DATABASE -> createTempDirectory("dynmap-processor").toFile().apply {
+                deleteOnExit()
+            }.absolutePath
+        }
 
-        if(jdbcUrl != null && dbUser != null && dbPassword != null) {
+        if (jdbcUrl != null && dbUser != null && dbPassword != null) {
             println("Downloading tiles from database...")
             val db = TileDatabase(
                 jdbcUrl!!,
@@ -168,57 +182,6 @@ class Main : CliktCommand(
             println("Image edit complete.")
         }
     }
-
-    private fun checkArguments() {
-        if (inputType == InputType.FILE) {
-            if (images == null) {
-                throw UsageError("Please specify the input directory.")
-            }
-        } else if (inputType == InputType.DATABASE) {
-            if (jdbcUrl == null || dbUser == null || dbPassword == null) {
-                throw UsageError("Please specify the database connection information.")
-            }
-        }
-    }
-
-    private fun getInputDirectory(): String {
-        if (inputType == InputType.FILE) {
-            return images.toString()
-        } else if (inputType == InputType.DATABASE) {
-            val tempDir = createTempDirectory("dynmap-processor").toFile()
-            tempDir.deleteOnExit()
-            return tempDir.absolutePath
-        }
-        throw IllegalStateException("Unknown input type: $inputType")
-    }
 }
 
 fun main(args: Array<String>) = Main().main(args)
-
-//fun main() {
-//    val chunkImageResolution = 128
-//    val zoom = 4
-//
-//    val mapImage = MapImage.create("./map/", "./images/", zoom, chunkImageResolution)
-//
-//    mapImage.createAreaImage(
-//        Area(
-//            "test1", listOf(
-//                MinecraftCoordinate(1070, -1873),
-//                MinecraftCoordinate(1362, -1873),
-//                MinecraftCoordinate(704, -1764),
-//                MinecraftCoordinate(1070, -1764),
-//                MinecraftCoordinate(704, -1430),
-//                MinecraftCoordinate(1362, -1430)
-//            ), Color(255, 167, 250) // yuuacity
-//        ),
-//        Area(
-//            "test2", listOf(
-//                MinecraftCoordinate(-1000, 1500),
-//                MinecraftCoordinate(-1500, 1500),
-//                MinecraftCoordinate(-1000, 1000),
-//                MinecraftCoordinate(-1500, 1000)
-//            ), Color.RED
-//        )
-//    )
-//}
