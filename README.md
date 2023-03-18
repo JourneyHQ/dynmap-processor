@@ -140,7 +140,7 @@ Scale up (or down) the output image to the specified scale rate.
 `0<x<1` to scale down, `1<x` to scale up.
 
 ## Marker file
-JSON Schema: `` //todo url
+JSON Schema: `https://raw.githubusercontent.com/jaoafa/DynmapProcessor/main/schema/markers-schema.json`
 <details>
     <summary>Sample file</summary>
 
