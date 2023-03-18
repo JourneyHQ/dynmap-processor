@@ -17,75 +17,67 @@ import java.time.format.DateTimeFormatter
 
 class Main : CliktCommand(
     help = """
-    # Dynmap Processor #
-    
-    Note that the final image will be processed in the following order:
-    
-    1. draw markers (-m)
-    
-    2. trim to a specified area (-t)
-    
-    3. scale width and height (-h,-w)
-    
-    4. resize the image by the provided rate (-r)
+        Welcome to Dynmap Processor.  
+        
+        For more detailed information, please refer to https://github.com/jaoafa/DynmapProcessor#readme
 """.trimIndent()
 ) {
     val images by option(
-        "-i",
+        "-i", "--input",
         help = "The directory of tile images."
     ).path(mustExist = true, canBeFile = false).required()
 
     val output by option(
-        "-o",
+        "-o", "--output",
         help = "The directory to output generated images and metadata."
     ).path(canBeFile = false).required()
 
     val cache by option(
-        "-c", //fixme when zoom level is different but use of cache is allowed...
+        "-c", "--cache", //fixme when zoom level is different but use of cache is allowed...
         help = "Whether to allow the use of cached basemap. (Skip basemap generation from scratch)"
     ).flag(default = false)
 
     val zoom by option(
-        "-z",
-        help = "Zoom level 0 to 4 (4 by default)"
+        "-z", "--zoom",
+        help = "Specify the zoom level from 0 to 4 (4 by default)"
     ).int().default(4).check("Value must be 0 to 4") {
         it in 0..4
     }
 
+    val grid by option(
+        "-g", "--grid",
+        help = "Whether to enable chunk grid."
+    ).flag(default = false)
+
     val edit by option(
-        "-e",
+        "-e", "--edit",
         help = "Whether to enable image editing."
     ).flag(default = false)
 
     val markers by option(
-        "-m",
-        help = "The file path to JSON file that configure markers."
+        "-m", "--markers",
+        help = "The file path to the JSON file that configures markers."
     ).path(mustExist = true, canBeDir = false)
 
+    val trim by option(
+        "-t", "--trim",
+        help = "Trim to the specified area. Format: x1,y1,x2,y2"
+    ).split(",").check("Length of the list must be 4. For example: 120,150,-10,10") { it.size == 4 }
+
     val height by option(
-        "-h",
-        help = "Height of the map image. Using with width parameter might cause distortion."
+        "-h", "--height",
+        help = "Height of the map image. Using this with the width option might cause distortion."
     ).int().check("Value must be positive.") { 0 < it }
 
     val width by option(
-        "-w",
-        help = "Width of the map image. Using with height parameter might cause distortion."
+        "-w", "--width",
+        help = "Width of the map image. Using this with the height option might cause distortion."
     ).int().check("Value must be positive.") { 0 < it }
 
-    val trim by option(
-        "-t",
-        help = "Trim to a specified area. Format: x1,y1,x2,y2"
-    ).split(",").check("Length of the list must be 4. For example: 120,150,-10,10") { it.size == 4 }
-
     val resize by option(
-        "-r",
+        "-r", "--resize",
         help = "Scale up (or down) the output image to the specified scale rate. (0<x<1 to scale down, 1<x to scale up)"
     ).double().default(1.0).check { it > 0 }
-
-    val grid by option(
-        "-g",
-        help = "Whether to enable chunk grid."
-    ).flag(default = false)
 
     override fun run() {
         val chunkImageResolution = 128
@@ -104,7 +96,10 @@ class Main : CliktCommand(
             val markerFile = File(this.markers.toString())
 
             val editedMapImage = mapImage.edit(
-                if (markerFile.exists()) Json.decodeFromString(Markers.serializer(), markerFile.readText()) else Markers(emptyList()),
+                if (markerFile.exists()) Json.decodeFromString(
+                    Markers.serializer(),
+                    markerFile.readText()
+                ) else Markers(emptyList()),
                 height,
                 width,
                 trim?.map { it.toInt() },

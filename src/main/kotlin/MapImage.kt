@@ -275,7 +275,7 @@ class MapImage(
 
             MarkerType.Circle ->
                 image.toCanvas().draw(
-                    Oval(pixelCoordinates[0].x, pixelCoordinates[0].y, marker.radius, marker.radius) {
+                    Oval(pixelCoordinates[0].x - (marker.radius / 2), pixelCoordinates[0].y - (marker.radius / 2), marker.radius, marker.radius) {
                         it.color = marker.color.toJavaColor()
                         it.background = marker.overlay.toJavaColor()
                     }
