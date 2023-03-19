@@ -15,39 +15,64 @@ Usage: main [OPTIONS]
   https://github.com/jaoafa/DynmapProcessor#readme
 
 Options:
-  -i, --input PATH    The directory of tile images.
-  -o, --output PATH   The directory to output generated images and metadata.
-  -c, --cache         Whether to allow the use of cached basemap. (Skip
-                      basemap generation from scratch)
-  -z, --zoom INT      Specify the zoom level from 0 to 4 (4 by default)
-  -g, --grid          Whether to enable chunk grid.
-  -e, --edit          Whether to enable image editing.
-  -m, --markers PATH  The file path to the JSON file that configures markers.
-  -t, --trim TEXT     Trim to the specified area. Format: x1,y1,x2,y2
-  -h, --height INT    Height of the map image. Using this with the width
-                      option might cause distortion.
-  -w, --width INT     Width of the map image. Using this with the height
-                      option might cause distortion.
-  -r, --resize FLOAT  Scale up (or down) the output image to the specified
-                      scale rate. (0<x<1 to scale down, 1<x to scale up)
-  --help              Show this message and exit
+  -t, --type [FILE|DATABASE]  Input type
+  -i, --input PATH            The directory of tile images.
+  -j, --jdbc-url TEXT         JDBC URL to connect to the dynmap database.
+  -u, --db-user TEXT          Database user name.
+  -p, --db-password TEXT      Database user password.
+  --db-table-prefix TEXT      Database table name.
+  --db-map-id INT             Map ID.
+  -o, --output PATH           The directory to output generated images and
+                              metadata.
+  --cache                     Whether to allow the use of cached basemap.
+                              (Skip basemap generation from scratch)
+  -z, --zoom INT              Specify the zoom level from 0 to 4 (4 by
+                              default)
+  -g, --grid                  Whether to enable chunk grid.
+  -e, --edit                  Whether to enable image editing.
+  -m, --markers PATH          The file path to the JSON file that configures
+                              markers.
+  -c, --clip TEXT             Clip the specified area from the map image.
+                              Format: x1,y1,x2,y2
+  -h, --height INT            Height of the map image. Using this with the
+                              width option might cause distortion.
+  -w, --width INT             Width of the map image. Using this with the
+                              height option might cause distortion.
+  -r, --resize FLOAT          Scale up (or down) the output image to the
+                              specified scale rate. (0<x<1 to scale down, 1<x
+                              to scale up)
+  --help                      Show this message and exit
 ```
 </details>
 
 ## Options
-| Type    | Name                                                | Flags            |  
-|---------|-----------------------------------------------------|------------------|  
-| `PATH`  | [Input](#input--i-or---input)                       | `-i` `--input`   |  
-| `PATH`  | [Output](#output--o-or---output)                    | `-o` `--output`  |  
-| `BOOL`  | [Cache](#cache--c-or---cache)                       | `-c` `--cache`   |  
-| `INT`   | [Zoom level](#zoom-level--z-or---zoom-4-by-default) | `-z` `--zoom`    |  
-| `BOOL`  | [Grid](#grid--g-or---grid-false-by-default)         | `-g` `--grid`    |  
-| `BOOL`  | [Edit](#edit--e-or---edit-false-by-default)         | `-e` `--edit`    |
-| `PATH`  | [Markers](#markers--m-or---markers)                 | `-m` `--markers` |
-| `TEXT`  | [Trim](#trim--t-or---trim)                          | `-t` `--trim`    |
-| `INT`   | [Height](#height-and-width--h-w-or---height--width) | `-h` `--height`  |
-| `INT`   | [Width](#height-and-width--h-w-or---height--width)  | `-w` `--width`   |
-| `FLOAT` | [Resize](#resize--r-or---resize-1-by-default)       | `-r` `--resize`  |
+| Type    | Name                                                  | Flags                |  
+|---------|-------------------------------------------------------|----------------------|
+| `ENUM`  | [Input type](#input-type--t-or---type)                | `-t` `--type`        |
+| `PATH`  | [Input](#input--i-or---input)                         | `-i` `--input`       |
+| `TEXT`  | [JDBC URL](#database-)                                | `-j` `--jbdc-url`    |
+| `TEXT`  | [Database User](#database-)                           | `-u` `--db-user`     |
+| `TEXT`  | [Database Password](#database-)                       | `-p` `--db-password` |
+| `TEXT`  | [Database Table Prefix](#database-)                   | `--db-table-prefix`  |
+| `INT`   | [Database Map ID](#database-)                         | `--db-map-id`        |
+| `PATH`  | [Output](#output--o-or---output)                      | `-o` `--output`      |  
+| `BOOL`  | [Cache](#cache--c-or---cache)                         | `--cache`            |  
+| `INT`   | [Zoom level](#zoom-level--z-or---zoom-4-by-default)   | `-z` `--zoom`        |  
+| `BOOL`  | [Grid](#grid--g-or---grid-false-by-default)           | `-g` `--grid`        |  
+| `BOOL`  | [Edit](#edit--e-or---edit-false-by-default)           | `-e` `--edit`        |
+| `PATH`  | [Markers](#markers--m-or---markers)                   | `-m` `--markers`     |
+| `TEXT`  | [Clip](#clip--c-or---clip)                            | `-c` `--clip`        |
+| `INT`   | [Height](#height-and-width--h--w-or---height---width) | `-h` `--height`      |
+| `INT`   | [Width](#height-and-width--h--w-or---height---width)  | `-w` `--width`       |
+| `FLOAT` | [Resize](#resize--r-or---resize-1-by-default)         | `-r` `--resize`      |
+
+### Input type: `-t` or `--type`
+> Example: `-t DATABASE`
+
+Where to get tile images.  
+`FILE` or `DATABASE`.
+
+---
 
 ### Input: `-i` or `--input`
 > Example: `-i ./input_images`  
@@ -68,6 +93,15 @@ input_images
     zoom-4
         ...
 ```
+
+---
+
+### Database: 
+`-j`, `-u`, `-p` or `--jdbc-url`, `--db-user`, `--db-password`, `--db-table-prefix`, `--db-map-id`
+> Example: `-j jdbc:mysql://localhost:1234 -u someone -p password --db-table-prefix dynmap --db-map-id 1234`
+
+Define the database information to download images from.  
+`--db-table-prefix` is `dmap` by default.
 
 ---
 
@@ -135,15 +169,15 @@ See [Marker file](#marker-file)
 
 ---
 
-### Trim: `-t` or `--trim`
-> Example: `-t 1000,1000,-1000,-1000`
+### Clip: `-c` or `--clip`
+> Example: `-c 1000,1000,-1000,-1000`
 
-Trim to the specified area.  
+Clip the specified area from the map image.  
 Format: `x1,y1,x2,y2`
 
 ---
 
-### Height and width: `-h`,`-w` or `--height`,`--width`
+### Height and width: `-h`, `-w` or `--height`, `--width`
 > Example: `-w 1000` / `-h 500`
 
 Height or width of the map image.  
