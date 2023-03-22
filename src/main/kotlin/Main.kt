@@ -139,7 +139,7 @@ class Main : CliktCommand(
 
         val inputDirectory = when (inputType) {
             InputType.FILE -> input.toString()
-            InputType.DATABASE -> createTempDirectory("dynmap-processor").toFile().apply {
+            InputType.DATABASE -> if (input != null) input.toString() else createTempDirectory("dynmap-processor").toFile().apply {
                 deleteOnExit()
             }.absolutePath
         }
