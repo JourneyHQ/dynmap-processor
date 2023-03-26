@@ -30,90 +30,95 @@ class Main : CliktCommand(
         For more detailed information, please refer to https://github.com/jaoafa/DynmapProcessor#readme
 """.trimIndent()
 ) {
-    val inputType by option(
+    private val inputType by option(
         "-t",
         "--type",
         help = "Input type"
     ).enum<InputType>().default(InputType.FILE)
 
-    val input by option(
+    private val input by option(
         "-i", "--input",
         help = "The directory of tile images."
     ).path(mustExist = true, canBeFile = false)
 
-    val jdbcUrl by option(
+    private val jdbcUrl by option(
         "-j", "--jdbc-url",
         help = "JDBC URL to connect to the dynmap database."
     ).check { it.startsWith("jdbc:mysql://") }
 
-    val dbUser by option(
+    private val dbUser by option(
         "-u", "--db-user",
         help = "Database user name."
     )
 
-    val dbPassword by option(
+    private val dbPassword by option(
         "-p", "--db-password",
         help = "Database user password."
     )
 
-    val dbTablePrefix by option(
+    private val dbTablePrefix by option(
         "--db-table-prefix",
         help = "Database table name."
     ).default("dmap")
 
-    val dbMapId by option(
+    private val dbMapId by option(
         "--db-map-id",
         help = "Map ID."
     ).int().default(1)
 
-    val output by option(
+    private val output by option(
         "-o", "--output",
         help = "The directory to output generated images and metadata."
     ).path(canBeFile = false).required()
 
-    val cache by option(
+    private val cache by option(
         "--cache", //fixme when zoom level is different but use of cache is allowed...
         help = "Whether to allow the use of cached basemap. (Skip basemap generation from scratch)"
     ).flag(default = false)
 
-    val zoom by option(
+    private val purgeIsolated by option(
+        "--purge-isolated",
+        help = "Whether to purge isolated chunks."
+    ).flag(default = false)
+
+    private val zoom by option(
         "-z", "--zoom",
         help = "Specify the zoom level from 0 to 4 (4 by default)"
     ).int().default(4).check("Value must be 0 to 4") {
         it in 0..4
     }
 
-    val grid by option(
+    private val grid by option(
         "-g", "--grid",
         help = "Whether to enable chunk grid."
     ).flag(default = false)
 
-    val edit by option(
+    private val edit by option(
         "-e", "--edit",
         help = "Whether to enable image editing."
     ).flag(default = false)
 
-    val markers by option(
+    private val markers by option(
         "-m", "--markers",
         help = "The file path to the JSON file that configures markers."
     ).path(mustExist = true, canBeDir = false)
 
-    val clip by option(
+    private val clip by option(
         "-c", "--clip",
         help = "Clip the specified area from the map image. Format: x1,y1,x2,y2"
     ).split(",").check("Length of the list must be 4. For example: 120,150,-10,10") { it.size == 4 }
 
-    val height by option(
+    private val height by option(
         "-h", "--height",
         help = "Height of the map image. Using this with the width option might cause distortion."
     ).int().check("Value must be positive.") { 0 < it }
 
-    val width by option(
+    private val width by option(
         "-w", "--width",
         help = "Width of the map image. Using this with the height option might cause distortion."
     ).int().check("Value must be positive.") { 0 < it }
 
-    val resize by option(
+    private val resize by option(
         "-r", "--resize",
         help = "Scale up (or down) the output image to the specified scale rate. (0<x<1 to scale down, 1<x to scale up)"
     ).double().default(1.0).check { it > 0 }
@@ -139,9 +144,10 @@ class Main : CliktCommand(
 
         val inputDirectory = when (inputType) {
             InputType.FILE -> input.toString()
-            InputType.DATABASE -> if (input != null) input.toString() else createTempDirectory("dynmap-processor").toFile().apply {
-                deleteOnExit()
-            }.absolutePath
+            InputType.DATABASE -> if (input != null) input.toString() else createTempDirectory("dynmap-processor").toFile()
+                .apply {
+                    deleteOnExit()
+                }.absolutePath
         }
 
         if (jdbcUrl != null && dbUser != null && dbPassword != null) {
@@ -159,7 +165,7 @@ class Main : CliktCommand(
         val mapImage =
             if (basemapExists && metadataExists && cache)
                 MapImage.load(outputString, inputDirectory)
-            else MapImage.create(outputString, inputDirectory, zoom, chunkImageResolution, grid)
+            else MapImage.create(outputString, inputDirectory, zoom, chunkImageResolution, grid, purgeIsolated)
 
         if (edit) {
             val markerFile = File(this.markers.toString())
