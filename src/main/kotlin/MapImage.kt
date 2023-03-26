@@ -9,34 +9,23 @@ import kotlinx.serialization.json.Json.Default.encodeToString
 import markers.*
 import java.awt.Color
 import java.io.File
-import java.rmi.UnexpectedException
 import kotlin.io.path.Path
 import kotlin.io.path.createDirectory
 import kotlin.io.path.exists
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-data class ChunkImageFile(
-    val x: Int,
-    val y: Int,
-    val file: File?
-)
 
 /**
  * @param path the directory path to store this map data. (like ./map_images/2023_1_4_13_14/)
  * @param chunkImagePath the directory path to chunk images.
  */
 class MapImage(
-    val path: String,
-    val chunkImagePath: String,
-    val mapImage: ImmutableImage,
-    val metadata: MapMetadata
+    private val path: String,
+    private val chunkImagePath: String,
+    private val mapImage: ImmutableImage,
+    private val metadata: MapMetadata
 ) {
-
-    private val temp = Path(path, "temp").let {
-        if (it.exists()) File(it.toUri())
-        else it.createDirectory()
-    }
 
     private fun MinecraftCoordinate.toPixelCoordinate(): PixelCoordinate {
         val chunks = 2.toDouble().pow(metadata.zoom + 2).toInt()
@@ -116,22 +105,39 @@ class MapImage(
             chunkImagePath: String,
             zoom: Int,
             chunkImageResolution: Int,
-            grid: Boolean
+            grid: Boolean,
+            purgeIsolated: Boolean
         ): MapImage {
             val root = Path(path)
             if (!root.exists()) root.createDirectory()
 
             val imageChunks = 2.toDouble().pow(zoom).toInt() // zoom-n -> 2^n
-            val imageFiles = collectImages(Path(chunkImagePath, "zoom-$zoom").toString())
+            var imageFiles = collectImages(Path(chunkImagePath, "zoom-$zoom").toString())
+
+            val centralChunkImageFile = imageFiles.find { (it.x == 0) && (it.y == 0) }
+                ?: throw UnsupportedOperationException("The center of the map (0, 0) could not be found!")
+
+            if (purgeIsolated) {
+                val clonedImageFiles = mutableListOf<PlacementData>().apply {
+                    addAll(imageFiles.map { it.toPlacementData() })
+                }
+                val centralChunkImageFiles = mutableListOf<PlacementData>()
+                fun recursiveCheck(placementData: PlacementData) {
+                    if (clonedImageFiles.contains(placementData)) {
+                        clonedImageFiles.remove(placementData)
+                        centralChunkImageFiles.add(placementData)
+                        placementData.chunksAround(imageChunks).forEach { recursiveCheck(it) }
+                    }
+                }
+                recursiveCheck(centralChunkImageFile.toPlacementData())
+
+                imageFiles = imageFiles.filter {
+                    centralChunkImageFiles.find { p -> p.xIndex == it.x && p.yIndex == it.y } != null
+                }.toMutableList()
+            }
 
             val xMapData = imageFiles.sortedWith(compareBy<ChunkImageFile> { it.x }.thenBy { it.y }).groupBy { it.x }
             val yMapData = imageFiles.sortedWith(compareBy<ChunkImageFile> { it.y }.thenBy { it.x }).groupBy { it.y }
-
-            val xZeroArea = xMapData[0]
-            val yZeroArea = yMapData[0]
-
-            if (!(xZeroArea != null && yZeroArea != null))
-                throw UnsupportedOperationException("The center of the map (0,0) could not be found!")
 
             val xKeys = xMapData.keys
             val yKeys = yMapData.keys
@@ -139,30 +145,34 @@ class MapImage(
             val xImages = (xKeys.max() - xKeys.min()) / imageChunks
             val yImages = (yKeys.max() - yKeys.min()) / imageChunks
 
-            val xFullResolution = xImages * chunkImageResolution
-            val yFullResolution = yImages * chunkImageResolution
-
-            val mapImages = mutableListOf<Pair<PlacementData, ChunkImageFile>>()
+            val mapImages = hashMapOf<PlacementData, ChunkImageFile>()
 
             for (x in 0 until xImages) {
                 for (y in 0 until yImages) {
                     val xChunk = xKeys.min() + imageChunks * x
                     val yChunk = yKeys.min() + imageChunks * y
-                    mapImages.add(PlacementData(x, y) to (imageFiles.find {
+                    mapImages[PlacementData(x, y)] = imageFiles.find {
                         it.x == xChunk && it.y == yChunk
-                    } ?: ChunkImageFile(xChunk, yChunk, null)))
+                    } ?: ChunkImageFile(xChunk, yChunk, null)
                 }
             }
 
-            var baseMap = ImmutableImage.create(xFullResolution, yFullResolution).fill(Color.BLACK)
-                ?: throw UnexpectedException("Base image generation failed.")
+            val xFullResolution = xImages * chunkImageResolution
+            val yFullResolution = yImages * chunkImageResolution
+
+            println("$xFullResolution, $yFullResolution")
+            val baseMap = ImmutableImage.create(xFullResolution, yFullResolution)
 
             lateinit var centralChunkPixel: PixelCoordinate // already confirmed that 0_0.png exists
 
-            for (mapImage in mapImages) {
-                val file = mapImage.second.file ?: continue
+            var num = mapImages.size
 
-                val isCentralChunk = mapImage.second.x == 0 && mapImage.second.y == 0
+            for ((placementData, chunkImageFile) in mapImages) {
+                num--
+                println("$num left.")
+                val file = chunkImageFile.file ?: continue
+
+                val isCentralChunk = chunkImageFile.x == 0 && chunkImageFile.y == 0
 
                 val chunkMap = ImmutableImage.loader().fromFile(file).map {
                     if (grid && (it.x == 0 || it.y == 0))
@@ -171,15 +181,16 @@ class MapImage(
                 }
 
                 val pixelCoordinate = PixelCoordinate(
-                    mapImage.first.xIndex * chunkImageResolution,
-                    yFullResolution - mapImage.first.yIndex * chunkImageResolution
-                ) // reversed
-
-                baseMap = baseMap.overlay(
-                    chunkMap,
-                    pixelCoordinate.x,
-                    pixelCoordinate.y
+                    placementData.xIndex * chunkImageResolution,
+                    yFullResolution - placementData.yIndex * chunkImageResolution // reversed
                 )
+
+                chunkMap.forEach {
+                    try {
+                        baseMap.setColor(pixelCoordinate.x + it.x, pixelCoordinate.y + it.y, it.toColor())
+                    } catch (_: Exception) {
+                    }
+                }
 
                 if (isCentralChunk) centralChunkPixel = pixelCoordinate
             }
@@ -275,7 +286,12 @@ class MapImage(
 
             MarkerType.Circle ->
                 image.toCanvas().draw(
-                    Oval(pixelCoordinates[0].x - (marker.radius / 2), pixelCoordinates[0].y - (marker.radius / 2), marker.radius, marker.radius) {
+                    Oval(
+                        pixelCoordinates[0].x - (marker.radius / 2),
+                        pixelCoordinates[0].y - (marker.radius / 2),
+                        marker.radius,
+                        marker.radius
+                    ) {
                         it.color = marker.color.toJavaColor()
                         it.background = marker.overlay.toJavaColor()
                     }
@@ -338,62 +354,4 @@ class MapImage(
 
         }.overlay(textImage, 2, 2), originPixel.x, originPixel.y)
     }
-
-//    fun createAreaImage(vararg areas: Area) {
-//        var areaMapImage = mapImage
-//        for (area in areas) {
-//            val pixelCoordinates = area.coordinates.map { it.toPixelCoordinate() }
-//            val xList = pixelCoordinates.map { it.x }
-//            val yList = pixelCoordinates.map { it.y }
-//
-//            val originPixel = PixelCoordinate(xList.min(), yList.min())
-//
-//            val width = xList.max() - xList.min() + 1
-//            val height = yList.max() - yList.min() + 1
-//
-//            val pixelImageArea = PixelCoordinate(width, height)
-//
-//            val textImage = ImmutableImage.create(pixelImageArea.x, 9)
-//                .toCanvas().draw(
-//                    Text(area.name, 0, 9) {
-//                        it.color = area.color
-//                    },
-//                    FilledRect(0, 0, pixelImageArea.x, 9) {
-//                        it.color = area.overlay
-//                    }
-//                ).image
-//
-//            val baseImage = ImmutableImage.create(pixelImageArea.x, pixelImageArea.y)
-//
-//            val xPixelLines =
-//                area.xLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
-//            val yPixelLines =
-//                area.yLines.map { (it.first.toPixelCoordinate() - originPixel) to (it.second.toPixelCoordinate() - originPixel) }
-//
-//            areaMapImage = areaMapImage.overlay(baseImage.map { pixel ->
-//                val xLinesInRange =
-//                    xPixelLines.any { (it.first.x <= pixel.x && pixel.x <= it.second.x) && pixel.y == it.first.y }
-//                val yLinesInRange =
-//                    yPixelLines.any { (it.first.y <= pixel.y && pixel.y <= it.second.y) && pixel.x == it.first.x }
-//
-//                val isLinesAbove =
-//                    xPixelLines.any { pixel.y > it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
-//                val isLinesBelow =
-//                    xPixelLines.any { pixel.y < it.first.y && (it.first.x <= pixel.x && pixel.x <= it.second.x) }
-//                val isLinesLeft =
-//                    yPixelLines.any { pixel.x > it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
-//                val isLinesRight =
-//                    yPixelLines.any { pixel.x < it.first.x && (it.first.y <= pixel.y && pixel.y <= it.second.y) }
-//
-//                if (xLinesInRange || yLinesInRange) area.color // this pixel is line.
-//                else if (isLinesAbove && isLinesBelow && isLinesLeft && isLinesRight) area.overlay // this pixel is in the area to fill.
-//                else pixel.toColor().awt() // this pixel should be ignored
-//
-//            }.overlay(textImage, 2, 2), originPixel.x, originPixel.y)
-//        }
-//
-//        val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-DD-HH-mm-ss")
-//        val filename = "AreaMap-${LocalDateTime.now().format(timeFormatter)}.png"
-//        areaMapImage.output(PngWriter.NoCompression, Path(path, filename))
-//    }
 }
