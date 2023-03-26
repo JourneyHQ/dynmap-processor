@@ -46,25 +46,26 @@ Options:
 </details>
 
 ## Options
-| Type    | Name                                                  | Flags                |  
-|---------|-------------------------------------------------------|----------------------|
-| `ENUM`  | [Input type](#input-type--t-or---type)                | `-t` `--type`        |
-| `PATH`  | [Input](#input--i-or---input)                         | `-i` `--input`       |
-| `TEXT`  | [JDBC URL](#database-)                                | `-j` `--jbdc-url`    |
-| `TEXT`  | [Database User](#database-)                           | `-u` `--db-user`     |
-| `TEXT`  | [Database Password](#database-)                       | `-p` `--db-password` |
-| `TEXT`  | [Database Table Prefix](#database-)                   | `--db-table-prefix`  |
-| `INT`   | [Database Map ID](#database-)                         | `--db-map-id`        |
-| `PATH`  | [Output](#output--o-or---output)                      | `-o` `--output`      |  
-| `BOOL`  | [Cache](#cache--c-or---cache)                         | `--cache`            |  
-| `INT`   | [Zoom level](#zoom-level--z-or---zoom-4-by-default)   | `-z` `--zoom`        |  
-| `BOOL`  | [Grid](#grid--g-or---grid-false-by-default)           | `-g` `--grid`        |  
-| `BOOL`  | [Edit](#edit--e-or---edit-false-by-default)           | `-e` `--edit`        |
-| `PATH`  | [Markers](#markers--m-or---markers)                   | `-m` `--markers`     |
-| `TEXT`  | [Clip](#clip--c-or---clip)                            | `-c` `--clip`        |
-| `INT`   | [Height](#height-and-width--h--w-or---height---width) | `-h` `--height`      |
-| `INT`   | [Width](#height-and-width--h--w-or---height---width)  | `-w` `--width`       |
-| `FLOAT` | [Resize](#resize--r-or---resize-1-by-default)         | `-r` `--resize`      |
+| Type    | Name                                                             | Flags                |  
+|---------|------------------------------------------------------------------|----------------------|
+| `ENUM`  | [Input type](#input-type--t-or---type)                           | `-t` `--type`        |
+| `PATH`  | [Input](#input--i-or---input)                                    | `-i` `--input`       |
+| `TEXT`  | [JDBC URL](#database-)                                           | `-j` `--jbdc-url`    |
+| `TEXT`  | [Database User](#database-)                                      | `-u` `--db-user`     |
+| `TEXT`  | [Database Password](#database-)                                  | `-p` `--db-password` |
+| `TEXT`  | [Database Table Prefix](#database-)                              | `--db-table-prefix`  |
+| `INT`   | [Database Map ID](#database-)                                    | `--db-map-id`        |
+| `PATH`  | [Output](#output--o-or---output)                                 | `-o` `--output`      |  
+| `BOOL`  | [Cache](#cache---cache)                                          | `--cache`            |
+| `BOOL`  | [Purge isolated chunks](#purge-isolated-chunks---purge-isolated) | `--purge-isolated`   |
+| `INT`   | [Zoom level](#zoom-level--z-or---zoom-4-by-default)              | `-z` `--zoom`        |  
+| `BOOL`  | [Grid](#grid--g-or---grid-false-by-default)                      | `-g` `--grid`        |  
+| `BOOL`  | [Edit](#edit--e-or---edit-false-by-default)                      | `-e` `--edit`        |
+| `PATH`  | [Markers](#markers--m-or---markers)                              | `-m` `--markers`     |
+| `TEXT`  | [Clip](#clip--c-or---clip)                                       | `-c` `--clip`        |
+| `INT`   | [Height](#height-and-width--h--w-or---height---width)            | `-h` `--height`      |
+| `INT`   | [Width](#height-and-width--h--w-or---height---width)             | `-w` `--width`       |
+| `FLOAT` | [Resize](#resize--r-or---resize-1-by-default)                    | `-r` `--resize`      |
 
 ### Input type: `-t` or `--type`
 > Example: `-t DATABASE`
@@ -122,11 +123,19 @@ output_images
 
 ---
 
-### Cache: `-c` or `--cache`
-> Example: `-c`
+### Cache: `--cache`
+> Example: `--cache`
 
 Whether to allow the use of cached basemap.  
 If you use this option and basemap.png already exists, Dynmap Processor will skip the new basemap generation.
+
+---
+
+### Purge isolated chunks: `--purge-isolated`
+> Example: `--purge-isolated`
+
+Whether to purge isolated chunks.  
+When this option enabled, Dynmap Processor will purge chunks isolated from the central chunk.
 
 ---
 
